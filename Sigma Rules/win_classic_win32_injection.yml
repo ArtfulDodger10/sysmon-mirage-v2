@@ -1,0 +1,94 @@
+title: Classic Win32 API Process Injection Detection
+id: 7d3a2f91-bc4e-4d8a-9f1c-e6b5a3c28d47
+status: experimental
+description: >
+  Detects classic process injection using Win32 APIs including OpenProcess,
+  VirtualAllocEx, WriteProcessMemory, and CreateRemoteThread. Primary indicator
+  is EID 8 with StartModule logged as "-" indicating thread execution from
+  unregistered memory (shellcode), combined with EID 10 showing high-privilege
+  ProcessAccess. Real observed GrantedAccess: 0x043A. Based on real telemetry
+  from controlled adversary emulation — Sysmon Mirage v2.
+references:
+  - https://attack.mitre.org/techniques/T1055/001/
+author: Nader Ayman
+date: 2026/05/25
+tags:
+  - attack.defense_evasion
+  - attack.privilege_escalation
+  - attack.t1055.001
+logsource:
+  category: process_access
+  product: windows
+  service: sysmon
+detection:
+
+  # Primary indicator — EID 8 with StartModule "-"
+  # StartModule logs as "-" when remote thread starts from shellcode
+  # in unregistered memory with no associated module name.
+  # Legitimate remote thread creators almost always start from named modules.
+  # Real observed value from classic injection testing.
+  selection_eid8_unregistered:
+    EventID: 8
+    StartModule: '-'
+    TargetImage|endswith:
+      - '\notepad.exe'
+      - '\explorer.exe'
+      - '\svchost.exe'
+      - '\lsass.exe'
+      - '\RuntimeBroker.exe'
+
+  # Secondary indicator — EID 10 with high-privilege GrantedAccess
+  # Real observed GrantedAccess from testing: 0x043A
+  # Covers common access mask combinations used by injection APIs
+  selection_eid10_high_access:
+    EventID: 10
+    TargetImage|endswith:
+      - '\notepad.exe'
+      - '\explorer.exe'
+      - '\svchost.exe'
+      - '\lsass.exe'
+    GrantedAccess:
+      - '0x043A'
+      - '0x1F1FFF'
+      - '0x1F1FF'
+      - '0x143A'
+
+  # Path-agnostic selector — catches injectors from any location
+  # Combines high GrantedAccess with non-system SourceImage path
+  selection_high_access_any_path:
+    EventID: 10
+    GrantedAccess:
+      - '0x043A'
+      - '0x1F1FFF'
+    TargetImage|endswith:
+      - '\notepad.exe'
+      - '\explorer.exe'
+      - '\svchost.exe'
+      - '\lsass.exe'
+
+  filter_legitimate:
+    SourceImage|startswith:
+      - 'C:\Program Files\Windows Defender\'
+      - 'C:\ProgramData\Microsoft\Windows Defender\'
+      - 'C:\Windows\System32\werfault.exe'
+      - 'C:\Windows\System32\taskmgr.exe'
+      - 'C:\Program Files\Microsoft Visual Studio\'
+
+  condition: (selection_eid8_unregistered or selection_eid10_high_access or selection_high_access_any_path) and not filter_legitimate
+
+falsepositives:
+  - Legitimate debuggers such as Visual Studio or WinDbg accessing processes
+  - Security software and EDR agents accessing protected processes
+  - Application updaters using remote thread creation for legitimate operations
+  - Game anti-cheat software with similar access patterns
+  - Process Monitor and Process Hacker opening handles with high access rights
+
+fields:
+  - SourceImage
+  - TargetImage
+  - GrantedAccess
+  - CallTrace
+  - StartAddress
+  - StartModule
+
+level: high

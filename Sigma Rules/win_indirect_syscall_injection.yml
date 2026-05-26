@@ -1,0 +1,94 @@
+title: Indirect Syscall Process Injection Detection
+id: 9b2e4f83-cd71-4a9e-b358-d7f2c1e46b19
+status: experimental
+description: >
+  Detects process injection using indirect system calls that jump into ntdll.dll
+  memory to execute the syscall instruction, mimicking legitimate call stack
+  behavior. Unlike direct syscalls, CallTrace begins with ntdll.dll making
+  detection harder. Key indicator is injector memory offsets appearing mid-chain
+  in an otherwise legitimate-looking CallTrace. Notable finding from controlled
+  testing: EID 8 appeared unexpectedly for this technique on Windows 10 x64
+  with Sysmon v15.20, contradicting common documentation. Based on real
+  telemetry from controlled adversary emulation — Sysmon Mirage v2.
+references:
+  - https://attack.mitre.org/techniques/T1055/
+  - https://attack.mitre.org/techniques/T1106/
+  - https://attack.mitre.org/techniques/T1027/007/
+author: Nader Ayman
+date: 2026/05/25
+tags:
+  - attack.defense_evasion
+  - attack.privilege_escalation
+  - attack.t1055
+  - attack.t1106
+  - attack.t1027.007
+logsource:
+  category: process_access
+  product: windows
+  service: sysmon
+detection:
+
+  # Primary indicator — ntdll at top with injector offsets mid-chain
+  # from user-writable paths. Real observed GrantedAccess: 0x103A
+  # This is the core indirect syscall signature — looks legitimate
+  # at first glance but injector is visible mid-chain.
+  selection_indirect_user_path:
+    EventID: 10
+    GrantedAccess:
+      - '0x103A'
+      - '0x1F1FFF'
+      - '0x043A'
+    CallTrace|startswith: 'C:\WINDOWS\SYSTEM32\ntdll.dll'
+    CallTrace|contains:
+      - '\Users\'
+      - '\Temp\'
+      - '\AppData\'
+      - '\ProgramData\'
+
+  # Path-agnostic indirect syscall selector — catches injectors running
+  # from any location. Looks for ntdll at top combined with any .exe
+  # offset appearing mid-chain before KERNEL32.DLL.
+  # More prone to false positives — use with correlation.
+  selection_indirect_any_path:
+    EventID: 10
+    GrantedAccess:
+      - '0x103A'
+      - '0x1F1FFF'
+    CallTrace|startswith: 'C:\WINDOWS\SYSTEM32\ntdll.dll'
+    CallTrace|contains|all:
+      - '.exe+'
+      - 'KERNEL32.DLL'
+
+  # Unexpected EID 8 finding — indirect syscall injector generated
+  # CreateRemoteThread event on Windows 10 x64 with Sysmon v15.20.
+  # StartModule "-" indicates thread starts from unregistered memory.
+  # Contradicts documentation stating indirect syscalls never generate EID 8.
+  selection_unexpected_eid8:
+    EventID: 8
+    StartModule: '-'
+    TargetImage|endswith:
+      - '\notepad.exe'
+      - '\explorer.exe'
+      - '\svchost.exe'
+      - '\RuntimeBroker.exe'
+
+  condition: selection_indirect_user_path or selection_indirect_any_path or selection_unexpected_eid8
+
+falsepositives:
+  - Legitimate applications with ntdll-based call stacks running from user directories
+  - Security products that use ntdll directly for inter-process operations
+  - JIT-compiled code from .NET or Java that produces unusual CallTrace patterns
+  - Browser renderer processes with sandboxed memory access patterns
+  - The path-agnostic selector has higher false positive potential —
+    requires correlation with EID 7 (Image Load) for higher confidence
+  - EID 8 with StartModule "-" from signed system processes is typically benign
+
+fields:
+  - SourceImage
+  - TargetImage
+  - GrantedAccess
+  - CallTrace
+  - StartModule
+  - SourceProcessId
+
+level: medium

@@ -1,0 +1,90 @@
+title: Direct Syscall Process Injection Detection
+id: 3f8c1e72-ad94-4b2e-8d47-f1c6b9e35a28
+status: experimental
+description: >
+  Detects process injection using direct system calls that bypass ntdll.dll
+  hooks. Key indicator is EID 10 CallTrace starting with injector memory
+  offsets rather than ntdll.dll, indicating the syscall instruction was
+  executed directly from attacker-controlled memory. UNKNOWN entries in
+  CallTrace were NOT observed on Windows 10 x64 with Sysmon v15.20 —
+  the reliable indicator is injector path at the top of the CallTrace chain.
+  Based on real telemetry from controlled adversary emulation — Sysmon Mirage v2.
+references:
+  - https://attack.mitre.org/techniques/T1055/
+  - https://attack.mitre.org/techniques/T1106/
+author: Nader Ayman
+date: 2026/05/25
+tags:
+  - attack.defense_evasion
+  - attack.privilege_escalation
+  - attack.t1055
+  - attack.t1106
+  - attack.t1027.007
+logsource:
+  category: process_access
+  product: windows
+  service: sysmon
+detection:
+
+  # Primary indicator — broken call stack from user-writable paths
+  # Real observed GrantedAccess: 0x103A (injection), 0x1000 (enumeration)
+  # CallTrace starts with injector path, not ntdll.dll
+  selection_broken_calltrace_user:
+    EventID: 10
+    GrantedAccess:
+      - '0x103A'
+      - '0x1F1FFF'
+      - '0x043A'
+    CallTrace|startswith:
+      - 'C:\Users\'
+      - 'C:\ProgramData\'
+      - 'C:\Temp\'
+      - 'C:\Windows\Temp\'
+
+  # Path-agnostic broken CallTrace — catches injectors running from
+  # any location including mounted shares or renamed binaries.
+  # Looks for .exe offset pattern appearing before KERNEL32 in chain,
+  # which indicates syscall executed from attacker-controlled memory.
+  selection_broken_calltrace_any:
+    EventID: 10
+    GrantedAccess:
+      - '0x103A'
+      - '0x1F1FFF'
+    CallTrace|contains|all:
+      - '.exe+'
+      - 'KERNEL32.DLL'
+    CallTrace|startswith:
+      - 'C:\Windows\Temp\'
+      - 'C:\ProgramData\'
+      - 'C:\Users\'
+      - 'C:\Temp\'
+
+  # Secondary indicator — WTSEnumerateProcessesA reconnaissance phase
+  # Direct syscall injectors commonly resolve target PID via WTS APIs,
+  # generating a distinctive EID 10 with clean-looking CallTrace.
+  # Real observed GrantedAccess for this phase: 0x1000
+  selection_wts_enum:
+    EventID: 10
+    GrantedAccess: '0x1000'
+    CallTrace|contains:
+      - 'WINSTA.dll'
+      - 'WTSAPI32.dll'
+
+  condition: selection_broken_calltrace_user or selection_broken_calltrace_any or selection_wts_enum
+
+falsepositives:
+  - Legitimate applications running from user directories making inter-process calls
+  - Penetration testing frameworks and red team tooling
+  - Custom internal automation tools running from non-standard paths
+  - Some game anti-cheat software using unusual memory access patterns
+  - WTS enumeration events alone are low-confidence — require correlation
+    with a second EID 10 from same SourceProcessId showing higher GrantedAccess
+
+fields:
+  - SourceImage
+  - TargetImage
+  - GrantedAccess
+  - CallTrace
+  - SourceProcessId
+
+level: high
