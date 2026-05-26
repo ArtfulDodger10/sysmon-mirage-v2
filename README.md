@@ -70,13 +70,13 @@ sysmon-mirage-v2/
 │       ├── syscalls.asm              — Indirect syscall stubs (jmp to ntdll)
 │       ├── handBag.h
 │       └── indirectSysCall.exe       — Compiled binary
-├── sigma/
+├── Sigma Rules/
 │   ├── win_classic_win32_injection.yml
 │   ├── win_direct_syscall_injection.yml
 │   └── win_indirect_syscall_injection.yml
 ├── evasion_testing/
 │   └── stack_spoofing_analysis.md
-├── docs/
+├── Docs/
 │   ├── findings.md
 │   ├── Telemetry_Expectations_Matrix.md
 │   ├── False_Positive_Tuning.md
