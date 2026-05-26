@@ -53,23 +53,35 @@ Development, shellcodes, as well as my blue teaming studying.
 ```
 sysmon-mirage-v2/
 ├── README.md
-├── config_mirage_v2.xml          — Sysmon config, covers all three techniques
+├── config_mirage_v2.xml
+├── REFERENCES.md
 ├── injectors/
-│   ├── classic_injection.c       — Win32 API injection via CreateRemoteThread
-│   ├── direct_syscall_injection.c — NtCreateThreadEx via direct syscall
-│   ├── indirect_syscall_injection.c — NtCreateThreadEx via indirect syscall
-│   ├── syscalls.asm              — Direct syscall stubs (NASM x64)
-│   ├── handBag.h                 — Native API type definitions
-│   └── shellcode_artful.asm      — x64 MessageBox payload (NASM)
+│   ├── shellcode_artful.asm          — x64 MessageBox payload (NASM)
+│   ├── classic_injection/
+│   │   ├── classic_injection.c       — Win32 API injection via CreateRemoteThread
+│   │   ├── handBag.h                 — Native API type definitions
+│   │   └── classic_injection.exe     — Compiled binary
+│   ├── direct_injection/
+│   │   ├── direct_syscall_injection.c — NtCreateThreadEx via direct syscall
+│   │   ├── syscalls.asm              — Direct syscall stubs (syscall instruction)
+│   │   ├── handBag.h
+│   │   └── directSysCall.exe         — Compiled binary
+│   └── indirect_injection/
+│       ├── indirect_syscall_injection.c — NtCreateThreadEx via indirect syscall
+│       ├── syscalls.asm              — Indirect syscall stubs (jmp to ntdll)
+│       ├── handBag.h
+│       └── indirectSysCall.exe       — Compiled binary
 ├── sigma/
 │   ├── win_classic_win32_injection.yml
 │   ├── win_direct_syscall_injection.yml
 │   └── win_indirect_syscall_injection.yml
+├── evasion_testing/
+│   └── stack_spoofing_analysis.md
 ├── docs/
-│   ├── findings.md               — Research findings and original contributions
-│   ├── Telemetry_Expectations_Matrix.md — Observed telemetry with real values
-│   ├── False_Positive_Tuning.md  — Real FP scenarios from testing
-│   ├── detection_gaps.md         — What Sysmon cannot see
+│   ├── findings.md
+│   ├── Telemetry_Expectations_Matrix.md
+│   ├── False_Positive_Tuning.md
+│   ├── detection_gaps.md
 │   └── Windows_Internals_Crash_Course.md
 └── screenshots/
     ├── classic/
