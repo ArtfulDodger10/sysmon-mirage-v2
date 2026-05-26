@@ -1,0 +1,63 @@
+<Sysmon schemaversion="4.91">
+  <!--
+    Sysmon Mirage v2 - Production Detection Config
+    Author  : Nader Ayman
+    Purpose : Capture telemetry for T1055 process injection research
+    Covers  : Classic WinAPI, Direct Syscalls, Indirect Syscalls
+
+    INSTALL : sysmon64.exe -accepteula -i config_mirage_v2.xml
+    UPDATE  : sysmon64.exe -c config_mirage_v2.xml
+    VERIFY  : sysmon64.exe -s
+  -->
+
+  <EventFiltering>
+
+    <!-- EID 1 - PROCESS CREATION
+         Logs injector launch with full parent/child context.
+         Excludes core Windows noise to reduce volume. -->
+    <ProcessCreate onmatch="exclude">
+      <Image condition="is">C:\Windows\System32\svchost.exe</Image>
+      <Image condition="is">C:\Windows\System32\conhost.exe</Image>
+      <Image condition="is">C:\Windows\System32\WerFault.exe</Image>
+      <Image condition="is">C:\Windows\System32\dllhost.exe</Image>
+      <Image condition="is">C:\Windows\System32\taskhostw.exe</Image>
+      <Image condition="is">C:\Windows\System32\RuntimeBroker.exe</Image>
+      <Image condition="is">C:\Windows\System32\SearchIndexer.exe</Image>
+      <Image condition="begin with">C:\Program Files\Windows Defender\</Image>
+      <Image condition="begin with">C:\ProgramData\Microsoft\Windows Defender\</Image>
+    </ProcessCreate>
+
+    <!-- EID 7 - IMAGE LOAD
+         Logs DLL loads into injection target processes.
+         Required for indirect syscall correlation.
+         Scoped to target processes only to avoid volume explosion. -->
+    <ImageLoad onmatch="include">
+      <Image condition="end with">notepad.exe</Image>
+      <Image condition="end with">explorer.exe</Image>
+      <Image condition="end with">lsass.exe</Image>
+      <Image condition="end with">winlogon.exe</Image>
+    </ImageLoad>
+
+    <!-- EID 8 - CREATEREMOTETHREAD
+         Classic injection signature (T1055.001).
+         Default is include everything - exclude only verified safe. -->
+    <CreateRemoteThread onmatch="exclude">
+      <SourceImage condition="is">C:\Windows\System32\wmpnetwk.exe</SourceImage>
+      <SourceImage condition="begin with">C:\Program Files\Google\Chrome\</SourceImage>
+      <SourceImage condition="begin with">C:\Program Files (x86)\Microsoft\Edge\</SourceImage>
+    </CreateRemoteThread>
+
+    <!-- EID 10 - PROCESSACCESS
+         Anchor event - fires for all three injection techniques.
+         Scoped to injector as source to eliminate system noise entirely.
+         In production: replace injector names with your monitored scope. -->
+    <ProcessAccess onmatch="include">
+      <SourceImage condition="end with">classic_injection.exe</SourceImage>
+      <SourceImage condition="end with">direct_syscall_injection.exe</SourceImage>
+      <SourceImage condition="end with">indirect_syscall_injection.exe</SourceImage>
+      <CallTrace condition="contains">UNKNOWN</CallTrace>
+    </ProcessAccess>
+
+  </EventFiltering>
+
+</Sysmon>
