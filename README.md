@@ -276,7 +276,7 @@ Sysmon has real blind spots that no configuration change can fix:
 - **Module stomping** — Code executing within legitimate DLL memory produces
   a clean-looking CallTrace from Sysmon's perspective.
 
-See [docs/detection_gaps.md](docs/detection_gaps.md) for full analysis.
+See [Docs/detection_gaps.md](docs/detection_gaps.md) for full analysis.
 
 ---
 
