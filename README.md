@@ -54,7 +54,6 @@ Development, shellcodes, as well as my blue teaming studying.
 sysmon-mirage-v2/
 ├── README.md
 ├── config_mirage_v2.xml
-├── REFERENCES.md
 ├── injectors/
 │   ├── shellcode_artful.asm          — x64 MessageBox payload (NASM)
 │   ├── classic_injection/
