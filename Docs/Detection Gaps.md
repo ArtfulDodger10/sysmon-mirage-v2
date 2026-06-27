@@ -1,19 +1,5 @@
 # Detection Gaps & Blind Spots
 
-This document covers what Sysmon cannot see when monitoring T1055 process
-injection techniques. Understanding the limits of your detection tooling
-is as important as understanding what it captures — a detection engineer
-who only documents what works is not being honest about their coverage.
-
----
-
-## Why This Document Exists
-
-Every detection framework has blind spots. Adversaries actively research
-and exploit these gaps. Documenting them serves two purposes: it gives
-defenders a realistic picture of their actual coverage, and it identifies
-where additional tooling or compensating controls are needed.
-
 The gaps below are specific to Sysmon user-mode telemetry. Some can be
 partially addressed with ETW-ti providers or commercial EDR solutions.
 None of them are fixable with Sysmon alone.
